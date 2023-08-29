@@ -1,6 +1,10 @@
 import os
 import signal
-import sys
+import time
+
+# Compile libextrapi.so for this to work
+import mcpi_addons.block as block
+import mcpi_addons.minecraft as minecraft
 
 
 class Colors:
@@ -61,24 +65,109 @@ def get_user_input(input_type, message="", validate=None):
 
 IS_DEBUG = os.environ.get("DEBUG") == "1"
 
+hostip = get_user_input("string", "Enter host IP or leave blank for localhost")
 
-def number_validator(number):
+if not hostip:
+    hostip = "localhost"
+
+try:
+    mc = minecraft.Minecraft.create()
+except ConnectionRefusedError:
+    print(f"\n{Artifacts.BOLD}{Colors.FAIL}Connection refused! Exiting...{Colors.ENDC}")
+    exit()
+
+
+def block_size_validator(number):
     if not number.isdigit():
         return "Must be a number"
-    elif int(number) < 4:
-        return "Must be at least 4 blocks"
+    elif int(number) < 2:
+        return "Must be at least 2 blocks"
     elif int(number) > 24:
         return "Can't be larger than 24 blocks"
     else:
         return True
 
 
+def select_player():
+    players = mc.getUsernames()
+    print(f"{Artifacts.BOLD}Players for which entity IDs were identified:{Colors.ENDC}")
+    for idx in range(len(players)):
+        print(f"{idx+1}. {players[idx]}")
+
+    selected_ply = False
+
+    while not selected_ply:
+        choice = get_user_input("integer", "Select a player")
+        if choice in range(1, len(players) + 1):
+            selected_ply = players[choice - 1]
+        else:
+            print(
+                f"{Colors.FAIL}Invalid choice. Please select a valid option.{Colors.ENDC}"
+            )
+    return mc.getPlayerEntityId(selected_ply)
+
+
 def air_nuke():
+    tnt = get_user_input(
+        "boolean",
+        f"{Artifacts.UNDERLINE}{Colors.FAIL}DO YOU WANT TO DO A LITTLE TROLLING?",
+    )
+    nukeblock = block.TNT if tnt else block.AIR
     print(f"{Colors.WARNING}WARNING: AIR NUKE WILL CAUSE DAMAGE{Colors.ENDC}")
-    size = get_user_input("integer", "Input size", number_validator)
+    player = select_player()
+
+    size = get_user_input("integer", "Input size", block_size_validator)
     print(f"Nuking radius of {size}")
-    # do stuff here later
+    playerTilePos = mc.entity.getTilePos(player)
+    mc.setBlocks(
+        playerTilePos.x - size,
+        playerTilePos.y - size,
+        playerTilePos.z - size,
+        playerTilePos.x + size,
+        playerTilePos.y + size,
+        playerTilePos.z + size,
+        nukeblock,
+        1,
+    )
     input(f"{Colors.OKGREEN}Nuke successful! Press enter key to return.{Colors.ENDC}")
+
+
+def b52_time_validator(number):
+    if not number.isdigit():
+        return "Must be a number"
+    elif int(number) < 3:
+        return "Must be at least 3 seconds"
+    elif int(number) > 30:
+        return "Can't be longer than 30 seconds"
+    else:
+        return True
+
+
+def continuous_bomb():
+    print(f"{Colors.WARNING}WARNING: B-52 MODE WILL CAUSE DAMAGE{Colors.ENDC}")
+    player = select_player()
+    duration = get_user_input(
+        "integer", "How long should this go on?", b52_time_validator
+    )
+    t_end = time.time() + duration
+    while time.time() < t_end:
+        tile_pos = mc.entity.getTilePos(player)
+        mc.setBlock(tile_pos.x, tile_pos.y - 2, tile_pos.z, block.TNT, 1)
+    input(f"{Colors.OKGREEN}Success! Press enter key to return.{Colors.ENDC}")
+
+
+def noah():
+    for y in range(-4, 64):
+        for x in range(-128, 128):
+            for z in range(-128, 128):
+                if mc.getBlock(x, y, z) == 0:
+                    mc.setBlock(x, y, z, block.WATER_STATIONARY)
+
+
+def wall():
+    print("You have made Donaldus proud :)")
+    mc.setBlocks(-128, -10, -1, 128, 64, 1, block.BEDROCK)
+    input(f"{Colors.OKGREEN}Success! Press enter key to return.{Colors.ENDC}")
 
 
 def exit_program():
@@ -99,6 +188,9 @@ signal.signal(signal.SIGINT, handle_interrupt)
 # Create a dictionary to map function names to their corresponding functions
 functions = {
     "Air nuke": air_nuke,
+    "Turn User into B-52": continuous_bomb,
+    "Flood": noah,
+    "Wall": wall,
     "Exit": exit_program,
 }
 
