@@ -1,5 +1,6 @@
 import signal
 import time
+from typing import Union
 
 import mcpi.minecraft as minecraft
 import mcpi_addons.block as block
@@ -35,7 +36,7 @@ class UserInput:
     """
 
     @staticmethod
-    def get_integer(prompt: str, valid_range: range | None = None) -> int:
+    def get_integer(prompt: str, valid_range: Union[range, None] = None) -> int:
         """Prompt the user for an integer input.
 
         :param prompt: The message displayed to the user.
@@ -140,7 +141,10 @@ class Troller:
         while True:
             print(f"{Colors.CYAN}\nChoose a function:{Styles.RESET}")
             for idx, func_name in enumerate(methods):
-                print(f"{idx+1}. {func_name.replace('_', ' ').capitalize()}")
+                func = getattr(self, func_name)
+                print(
+                    f"{idx+1}. {func.__doc__ or func_name.replace('_', ' ').capitalize()}"
+                )
 
             choice = UserInput.get_integer(
                 "Enter the number of the function you want to run"
@@ -148,6 +152,7 @@ class Troller:
 
             if 1 <= choice <= len(methods):
                 selected_function = getattr(self, methods[choice - 1])
+                print("\033c", end="")  # Clear the console
                 selected_function()
             else:
                 print(
@@ -155,6 +160,7 @@ class Troller:
                 )
 
     def air_nuke(self):
+        """Air Nuke"""
         tnt = UserInput.get_boolean("DO YOU WANT TO DO A LITTLE TROLLING?")
         nuke_block = block.TNT if tnt else block.AIR
 
@@ -174,6 +180,7 @@ class Troller:
         )
 
     def continuous_bomb(self):
+        """TNT Torment (B-52 mode)"""
         player = self.player_manager.select_player()
         duration = UserInput.get_integer("How long should this go on?", range(4, 61))
         t_end = time.time() + duration
@@ -181,11 +188,29 @@ class Troller:
         while time.time() < t_end:
             tile_pos = self.mc_instance.entity.getTilePos(player)
             self.mc_instance.setBlock(
-                tile_pos.x, tile_pos.y - 2, tile_pos.z, block.TNT, 1
+                tile_pos.x, tile_pos.y - 1, tile_pos.z, block.TNT, 1
             )
 
     def wall(self):
+        """Generate a wall to split the world in 2"""
         self.mc_instance.setBlocks(-128, -10, -1, 128, 64, 1, block.BEDROCK)
+
+    def noah(self):
+        """Turn the world into an ocean"""
+        print(
+            f"{Colors.YELLOW}{Styles.BOLD}WARNING: THIS WILL CAUSE MASS DAMAGE TO THE WORLD.{Styles.RESET}"
+        )
+        if not UserInput.get_boolean("Are you sure you want to continue?"):
+            return
+        fill_block = (
+            block.LAVA_STATIONARY
+            if UserInput.get_boolean("Use lava instead of water?")
+            else block.WATER_STATIONARY
+        )
+        self.mc_instance.setBlocks(-128, -60, -128, 128, 16, 128, block.AIR)
+        self.mc_instance.setBlocks(-128, -60, -128, 128, -59, 128, block.SAND)
+        self.mc_instance.setBlocks(-128, -58, -128, 128, 16, 128, fill_block)
+        print(f"{Colors.GREEN}Success, returning...{Styles.RESET}")
 
     @staticmethod
     def exit_program():

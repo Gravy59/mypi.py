@@ -1,0 +1,2 @@
+mcpi==1.2.1
+MCPI-Addons==1.2.2
